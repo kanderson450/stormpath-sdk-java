@@ -182,12 +182,15 @@ import org.springframework.web.context.request.ServletRequestAttributes;
 import org.springframework.web.cors.CorsConfiguration;
 import org.springframework.web.cors.UrlBasedCorsConfigurationSource;
 import org.springframework.web.filter.CorsFilter;
+import org.springframework.web.method.HandlerMethod;
 import org.springframework.web.servlet.HandlerInterceptor;
 import org.springframework.web.servlet.HandlerMapping;
 import org.springframework.web.servlet.LocaleResolver;
 import org.springframework.web.servlet.config.annotation.ResourceHandlerRegistry;
 import org.springframework.web.servlet.i18n.CookieLocaleResolver;
 import org.springframework.web.servlet.i18n.LocaleChangeInterceptor;
+import org.springframework.web.servlet.mvc.method.RequestMappingInfo;
+import org.springframework.web.servlet.mvc.method.annotation.RequestMappingHandlerMapping;
 import org.springframework.web.servlet.view.InternalResourceViewResolver;
 import org.springframework.web.servlet.view.JstlView;
 import org.springframework.web.servlet.view.json.MappingJackson2JsonView;
@@ -473,6 +476,9 @@ public abstract class AbstractStormpathWebMvcConfiguration {
 
     @Autowired //all view resolvers in the spring app context. key: bean name, value: resolver
     private Map<String, org.springframework.web.servlet.ViewResolver> viewResolvers;
+
+    @Autowired
+    private RequestMappingHandlerMapping requestMappingHandlerMapping;
 
     private static class AccessibleResourceHandlerRegistry extends ResourceHandlerRegistry {
         public AccessibleResourceHandlerRegistry(ApplicationContext applicationContext, ServletContext servletContext) {
@@ -1322,6 +1328,7 @@ public abstract class AbstractStormpathWebMvcConfiguration {
     private <T extends AbstractController> T init(T c) {
         try {
             c.init();
+            assertUniqueMethodMapping(c);
             return c;
         } catch (Exception e) {
             String msg = "Unable to initialize controller [" + c + "]: " + e.getMessage();
@@ -1562,6 +1569,26 @@ public abstract class AbstractStormpathWebMvcConfiguration {
         }
 
         return java.util.Collections.emptyList();
+    }
+
+    /**
+     * Fix for https://github.com/stormpath/stormpath-sdk-java/issues/1164
+     *
+     * @since 1.2.3
+     */
+    private <T extends AbstractController> void assertUniqueMethodMapping(T c) {
+        Set<RequestMappingInfo> requestMappingInfoSet = requestMappingHandlerMapping.getHandlerMethods().keySet();
+        for(RequestMappingInfo requestMappingInfo : requestMappingInfoSet){
+            Set<String> patterns = requestMappingInfo.getPatternsCondition().getPatterns();
+            for(String pattern: patterns){
+                if(c.getUri() != null && c.getUri().equals(pattern)){
+                    HandlerMethod handlerMethod = requestMappingHandlerMapping.getHandlerMethods().get(requestMappingInfo);
+                    throw new IllegalStateException("Mapping conflict.  Stormpath cannot map '" + c.getUri() + "'. " +
+                    "There is already '" + handlerMethod.getBean() +
+                    "' bean method\n" + handlerMethod + " mapped.");
+                }
+            }
+        }
     }
 }
 
