@@ -1574,18 +1574,17 @@ public abstract class AbstractStormpathWebMvcConfiguration {
     /**
      * Fix for https://github.com/stormpath/stormpath-sdk-java/issues/1164
      *
-     * @since 1.2.3
+     * @since 1.3.0
      */
     private <T extends AbstractController> void assertUniqueMethodMapping(T c) {
         Set<RequestMappingInfo> requestMappingInfoSet = requestMappingHandlerMapping.getHandlerMethods().keySet();
-        for(RequestMappingInfo requestMappingInfo : requestMappingInfoSet){
+        for (RequestMappingInfo requestMappingInfo : requestMappingInfoSet) {
             Set<String> patterns = requestMappingInfo.getPatternsCondition().getPatterns();
-            for(String pattern: patterns){
-                if(c.getUri() != null && c.getUri().equals(pattern)){
+            for (String pattern: patterns) {
+                if (c.getUri() != null && c.getUri().equals(pattern)) {
                     HandlerMethod handlerMethod = requestMappingHandlerMapping.getHandlerMethods().get(requestMappingInfo);
-                    throw new IllegalStateException("Mapping conflict.  Stormpath cannot map '" + c.getUri() + "'. " +
-                    "There is already '" + handlerMethod.getBean() +
-                    "' bean method\n" + handlerMethod + " mapped.");
+                    throw new IllegalStateException("Mapping conflict: Stormpath cannot map '" + c.getUri() + "'. " +
+                    handlerMethod.getBean() + "#" + handlerMethod + " is already mapped to this URI.");
                 }
             }
         }
